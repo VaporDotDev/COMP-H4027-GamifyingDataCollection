@@ -1,38 +1,69 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script type="text/javascript">
+        function takePicture() {
+            navigator.mediaDevices.getUserMedia({
+                video: {facingMode: 'environment'}
+            }).then(function (stream) {
+                var video = document.querySelector('video');
+                video.srcObject = stream;
+                video.onloadedmetadata = function (e) {
+                    video.play();
+                    var canvas = document.querySelector('canvas');
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                };
+            });
+        }
+
+        function submitForm() {
+            var canvas = document.querySelector('canvas');
+            var video = document.querySelector('video');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            var context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            var formData = new FormData();
+            var dataURL = canvas.toDataURL('image/jpeg');
+            var binary = atob(dataURL.split(',')[1]);
+            var array = [];
+            for (var i = 0; i < binary.length; i++) {
+                array.push(binary.charCodeAt(i));
+            }
+            var blob = new Blob([new Uint8Array(array)], {type: 'image/jpeg'});
+            formData.append('image', blob);
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/predict', true);
+            xhr.onload = function () {
+                console.log(xhr.responseText);
+                var response = JSON.parse(xhr.responseText);
+                var video = document.querySelector('video');
+                var xmin = Math.round(response.prediction[0][0] * video.videoWidth);
+                var xmax = Math.round(response.prediction[0][1] * video.videoWidth);
+                var ymin = Math.round(response.prediction[0][2] * video.videoHeight);
+                var ymax = Math.round(response.prediction[0][3] * video.videoHeight);
+                console.log(xmin, xmax, ymin, ymax);
+
+                var canvas = document.querySelector('canvas');
+                var context = canvas.getContext('2d');
+                context.beginPath();
+                context.strokeStyle = "red";
+                context.rect(xmin, ymin, xmax - xmin, ymax - ymin);
+                context.stroke();
+            };
+            xhr.send(formData);
+        }
+    </script>
     <meta charset="UTF-8">
     <title>Scan</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
-<body>
-Scan
-<div id="container">
-    <video autoplay="true" id="videoElement">
-
-    </video>
-</div>
-<script>
-    var video = document.querySelector("#videoElement");
-    video.setAttribute('playsinline', '');
-    video.setAttribute('autoplay', '');
-    video.setAttribute('muted', '');
-    video.style.width = '200px';
-    video.style.height = '200px';
-
-    /* Setting up the constraint */
-    var facingMode = "user"; // Can be 'user' or 'environment' to access back or front camera (NEAT!)
-    var constraints = {
-        audio: false,
-        video: {
-            facingMode: facingMode
-        }
-    };
-
-    /* Stream it to video element */
-    navigator.mediaDevices.getUserMedia(constraints).then(function success(stream) {
-        video.srcObject = stream;
-    });
-</script>
+<body onload="takePicture()">
+<video></video>
+<canvas></canvas>
+<button onclick="submitForm()">Predict</button>
 </body>
 </html>
