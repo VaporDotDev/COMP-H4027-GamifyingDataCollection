@@ -1,9 +1,10 @@
 import os
+import zipfile
 
 import cv2
 import numpy as np
 import tensorflow as tf
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_file
 
 app = Flask(__name__)
 
@@ -23,6 +24,18 @@ def scan():
 @app.route('/guide')
 def guide():
     return render_template('guide.html')
+
+
+@app.route('/download')
+def download():
+    # Create a zip file
+    with zipfile.ZipFile("images.zip", "w") as zip_file:
+        # Write each file in the images directory to the zip file
+        for filename in os.listdir("images"):
+            zip_file.write(os.path.join("images", filename))
+
+    # Send the zip file to the user
+    return send_file("images.zip", as_attachment=True)
 
 
 @app.route('/predict', methods=['POST', 'GET'])
@@ -60,7 +73,8 @@ def predict():
         # Get the prediction values
         xmin, xmax, ymin, ymax = prediction[0]
         # Multiply the values by the image width and height
-        xmin, xmax, ymin, ymax = xmin * image.shape[1], xmax * image.shape[1], ymin * image.shape[0], ymax * image.shape[0]
+        xmin, xmax, ymin, ymax = xmin * image.shape[1], xmax * image.shape[1], ymin * image.shape[0], ymax * \
+                                 image.shape[0]
         # Convert the values to integers
         xmin, xmax, ymin, ymax = int(xmin), int(xmax), int(ymin), int(ymax)
         # Write the values to the CSV file
