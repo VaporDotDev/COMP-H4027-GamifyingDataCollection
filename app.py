@@ -1,3 +1,5 @@
+import os
+
 import cv2
 import numpy as np
 import tensorflow as tf
@@ -34,8 +36,11 @@ def predict():
     # Decode the image using the TIFF flag
     image = cv2.imdecode(image, cv2.IMREAD_UNCHANGED | cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
 
-    # Save the image to disk
-    cv2.imwrite("images/image.tiff", image)
+    # Get the number of files in the images folder excluding the CSV file
+    num_files = len([file for file in os.listdir('images') if file.endswith('.tiff')])
+
+    # Save the image to disk with incremented file name
+    cv2.imwrite(f"images/image_{num_files + 1}.tiff", image)
 
     # Resize the image to (224, 224)
     image = cv2.resize(image, (224, 224))
@@ -49,6 +54,17 @@ def predict():
 
     # Make a prediction with the model
     prediction = model.predict(image[np.newaxis, ...])
+
+    # Create a CSV file with image name and prediction
+    with open('images/data.csv', 'a') as f:
+        # Get the prediction values
+        xmin, xmax, ymin, ymax = prediction[0]
+        # Multiply the values by the image width and height
+        xmin, xmax, ymin, ymax = xmin * image.shape[1], xmax * image.shape[1], ymin * image.shape[0], ymax * image.shape[0]
+        # Convert the values to integers
+        xmin, xmax, ymin, ymax = int(xmin), int(xmax), int(ymin), int(ymax)
+        # Write the values to the CSV file
+        f.write(f"image_{num_files + 1}.tiff,{xmin},{xmax},{ymin},{ymax}\n")
 
     print(prediction)
     response = {"prediction": prediction.tolist()}
