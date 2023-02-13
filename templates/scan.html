@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <script type="text/javascript">
         function takePicture() {
@@ -26,13 +26,13 @@
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
             var formData = new FormData();
-            var dataURL = canvas.toDataURL('image/jpeg');
+            var dataURL = canvas.toDataURL('image/tiff');
             var binary = atob(dataURL.split(',')[1]);
             var array = [];
             for (var i = 0; i < binary.length; i++) {
                 array.push(binary.charCodeAt(i));
             }
-            var blob = new Blob([new Uint8Array(array)], {type: 'image/jpeg'});
+            var blob = new Blob([new Uint8Array(array)], {type: 'image/tiff'});
             formData.append('image', blob);
 
             var xhr = new XMLHttpRequest();
@@ -57,9 +57,6 @@
             xhr.send(formData);
         }
     </script>
-    <meta charset="UTF-8">
-    <title>Scan</title>
-    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body onload="takePicture()">
 <video></video>
