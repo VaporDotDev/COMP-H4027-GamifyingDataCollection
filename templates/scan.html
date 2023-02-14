@@ -2,68 +2,56 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Home</title>
+    <title>Scan</title>
     <link rel="stylesheet" href="/static/style.css">
     <script type="text/javascript">
-        function takePicture() {
-            navigator.mediaDevices.getUserMedia({
-                video: {facingMode: 'environment'}
-            }).then(function (stream) {
-                var video = document.querySelector('video');
-                video.srcObject = stream;
-                video.onloadedmetadata = function (e) {
-                    video.play();
-                    var canvas = document.querySelector('canvas');
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
-                };
-            });
-        }
-
         function submitForm() {
             var canvas = document.querySelector('canvas');
-            var video = document.querySelector('video');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            var context = canvas.getContext('2d');
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            var fileInput = document.querySelector('input[type="file"]');
+            var image = new Image();
+            image.src = URL.createObjectURL(fileInput.files[0]);
 
-            var formData = new FormData();
-            var dataURL = canvas.toDataURL('image/tiff');
-            var binary = atob(dataURL.split(',')[1]);
-            var array = [];
-            for (var i = 0; i < binary.length; i++) {
-                array.push(binary.charCodeAt(i));
-            }
-            var blob = new Blob([new Uint8Array(array)], {type: 'image/tiff'});
-            formData.append('image', blob);
-
-            var xhr = new XMLHttpRequest();
-            xhr.open('POST', '/predict', true);
-            xhr.onload = function () {
-                console.log(xhr.responseText);
-                var response = JSON.parse(xhr.responseText);
-                var video = document.querySelector('video');
-                var xmin = Math.round(response.prediction[0][0] * video.videoWidth);
-                var xmax = Math.round(response.prediction[0][1] * video.videoWidth);
-                var ymin = Math.round(response.prediction[0][2] * video.videoHeight);
-                var ymax = Math.round(response.prediction[0][3] * video.videoHeight);
-                console.log(xmin, xmax, ymin, ymax);
-
-                var canvas = document.querySelector('canvas');
+            image.onload = function () {
+                canvas.width = image.width;
+                canvas.height = image.height;
                 var context = canvas.getContext('2d');
-                context.beginPath();
-                context.strokeStyle = "red";
-                context.rect(xmin, ymin, xmax - xmin, ymax - ymin);
-                context.stroke();
+                context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+                var formData = new FormData();
+                var dataURL = canvas.toDataURL('image/tiff');
+                var binary = atob(dataURL.split(',')[1]);
+                var array = [];
+                for (var i = 0; i < binary.length; i++) {
+                    array.push(binary.charCodeAt(i));
+                }
+                var blob = new Blob([new Uint8Array(array)], {type: 'image/tiff'});
+                formData.append('image', blob);
+
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', '/predict', true);
+                xhr.onload = function () {
+                    console.log(xhr.responseText);
+                    var response = JSON.parse(xhr.responseText);
+                    var xmin = Math.round(response.prediction[0][0] * canvas.width);
+                    var xmax = Math.round(response.prediction[0][1] * canvas.width);
+                    var ymin = Math.round(response.prediction[0][2] * canvas.height);
+                    var ymax = Math.round(response.prediction[0][3] * canvas.height);
+                    console.log(xmin, xmax, ymin, ymax);
+
+                    var context = canvas.getContext('2d');
+                    context.beginPath();
+                    context.strokeStyle = "red";
+                    context.rect(xmin, ymin, xmax - xmin, ymax - ymin);
+                    context.stroke();
+                };
+                xhr.send(formData);
             };
-            xhr.send(formData);
         }
     </script>
 </head>
-<body onload="takePicture()">
-<video></video>
-<canvas></canvas>
+<body>
 <button onclick="submitForm()">Predict</button>
+<input type="file" accept="image/*" capture="environment">
+<canvas></canvas>
 </body>
 </html>
