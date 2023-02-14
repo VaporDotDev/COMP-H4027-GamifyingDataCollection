@@ -35,7 +35,12 @@ def download():
             zip_file.write(os.path.join("images", filename))
 
     # Send the zip file to the user
-    return send_file("images.zip", as_attachment=True)
+    response = send_file("images.zip", as_attachment=True)
+
+    # Delete the zip file
+    os.remove("images.zip")
+
+    return response
 
 
 @app.route('/predict', methods=['POST', 'GET'])
