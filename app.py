@@ -1,3 +1,4 @@
+import json
 import os
 import pathlib
 import zipfile
@@ -13,14 +14,14 @@ from flask import Flask, render_template, session, abort, redirect, request, jso
 from google.oauth2 import id_token
 from google_auth_oauthlib.flow import Flow
 
+client_secrets_file = os.path.join(pathlib.Path(__file__).parent, "client_secret.json")
+
 app = Flask(__name__)
-app.secret_key = "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"
+app.secret_key = json.load(open(client_secrets_file, "r"))["web"]["client_secret"]
 
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
-GOOGLE_CLIENT_ID = "23422918746-8lrj7p2251v8phr1klktqfc84e02fmib.apps.googleusercontent.com"
-client_secrets_file = os.path.join(pathlib.Path(__file__).parent, "client_secret.json")
-
+GOOGLE_CLIENT_ID = json.load(open(client_secrets_file, "r"))["web"]["client_id"]
 flow = Flow.from_client_secrets_file(client_secrets_file=client_secrets_file,
                                      scopes=["https://www.googleapis.com/auth/userinfo.email",
                                              "openid",
