@@ -1,14 +1,45 @@
+import json
 import os
+import pathlib
 import zipfile
+from functools import wraps
 
+import cachecontrol as cachecontrol
 import cv2
+import google
 import numpy as np
+import requests
 import tensorflow as tf
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, session, abort, redirect, request, jsonify, send_file
+from google.oauth2 import id_token
+from google_auth_oauthlib.flow import Flow
 
 app = Flask(__name__)
+app.secret_key = json.load(open("client_secret.json", "r"))["web"]["client_secret"]
+
+os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+
+GOOGLE_CLIENT_ID = json.load(open("client_secret.json", "r"))["web"]["client_id"]
+client_secrets_file = os.path.join(pathlib.Path(__file__).parent, "client_secret.json")
+
+flow = Flow.from_client_secrets_file(client_secrets_file=client_secrets_file,
+                                     scopes=["https://www.googleapis.com/auth/userinfo.email",
+                                             "openid",
+                                             "https://www.googleapis.com/auth/userinfo.profile"],
+                                     redirect_uri="http://127.0.0.1:5000/callback")
 
 model = tf.keras.models.load_model('models/vehicle_classification_2022-12-24_14-34-13.h5')
+
+
+def login_is_required(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if "google_id" not in session:
+            return abort(401)
+        else:
+            return f()
+
+    return wrapper
 
 
 @app.route('/')
@@ -17,6 +48,7 @@ def hello_world():  # put application's code here
 
 
 @app.route('/scan')
+@login_is_required
 def scan():
     return render_template('scan.html')
 
@@ -26,7 +58,42 @@ def guide():
     return render_template('guide.html')
 
 
+@app.route("/login")
+def login():
+    authorization_url, state = flow.authorization_url()
+    session["state"] = state
+    return redirect(authorization_url)
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return "Logout Page"
+
+
+@app.route("/callback")
+def callback():
+    flow.fetch_token(authorization_response=request.url)
+
+    if not session["state"] == request.args["state"]:
+        abort(500)
+
+    credentials = flow.credentials
+    request_session = requests.session()
+    cached_session = cachecontrol.CacheControl(request_session)
+    token_request = google.auth.transport.requests.Request(session=cached_session)
+
+    id_info = google.oauth2.id_token.verify_oauth2_token(
+        id_token=credentials._id_token,
+        request=token_request,
+        audience=GOOGLE_CLIENT_ID
+    )
+    session["google_id"] = id_info["sub"]
+    return redirect("/")
+
+
 @app.route('/download')
+@login_is_required
 def download():
     # Create a zip file
     with zipfile.ZipFile("images.zip", "w") as zip_file:
@@ -44,6 +111,7 @@ def download():
 
 
 @app.route('/predict', methods=['POST', 'GET'])
+@login_is_required
 def predict():
     # Get the image from the request
     image = request.files['image'].read()
@@ -91,4 +159,4 @@ def predict():
 
 
 if __name__ == '__main__':
-    app.run(host='192.168.0.94', debug=True)
+    app.run(host="192.168.0.94", debug=True)
