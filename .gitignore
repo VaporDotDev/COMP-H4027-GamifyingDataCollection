@@ -153,3 +153,4 @@ cython_debug/
 /models/
 /images/
 /images.zip
+/client_secret.json
