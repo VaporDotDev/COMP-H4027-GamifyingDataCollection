@@ -35,7 +35,7 @@ def login_is_required(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
         if "google_id" not in session:
-            return abort(401)
+            return redirect("/login")
         else:
             return f()
 
@@ -68,7 +68,7 @@ def login():
 @app.route("/logout")
 def logout():
     session.clear()
-    return "Logout Page"
+    return redirect("/")
 
 
 @app.route("/callback")
