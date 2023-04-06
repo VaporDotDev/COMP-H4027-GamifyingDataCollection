@@ -5,6 +5,10 @@
     <title>Scan</title>
     <link rel="stylesheet" href="/static/style.css">
     <script type="text/javascript">
+        function isMobile() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        }
+
         function submitForm() {
             var canvas = document.querySelector('canvas');
             var fileInput = document.querySelector('input[type="file"]');
@@ -47,12 +51,23 @@
                 xhr.send(formData);
             };
         }
+
+        window.onload = function () {
+            if (isMobile()) {
+                document.querySelector('button[onclick="submitForm()"]').style.display = 'inline-block';
+                document.querySelector('button label[for="Scan"]').parentNode.style.display = 'inline-block';
+            } else {
+                var message = document.createElement('p');
+                message.innerText = 'Please visit this page on a mobile device.';
+                document.body.appendChild(message);
+            }
+        };
     </script>
 </head>
 <body>
-<button onclick="submitForm()">Predict</button>
-<button><label for="test">Scan</label></button>
-<input id="test" type="file" accept="image/*" capture="environment" style="visibility: hidden">
+<button onclick="submitForm()" style="display: none">Predict</button>
+<button style="display: none"><label for="Scan">Scan</label></button>
+<input id="Scan" type="file" accept="image/*" capture="environment" style="visibility: hidden">
 <canvas></canvas>
 <ul>
     <li><a href="/">Home</a></li>
