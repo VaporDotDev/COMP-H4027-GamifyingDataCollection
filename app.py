@@ -1,6 +1,5 @@
 import json
 import os
-import pathlib
 import zipfile
 from functools import wraps
 
@@ -9,24 +8,30 @@ import cv2
 import google
 import numpy as np
 import requests
+import sqlalchemy
 import tensorflow as tf
+from dotenv import load_dotenv
 from flask import Flask, render_template, session, abort, redirect, request, jsonify, send_file
+from flask_sqlalchemy import SQLAlchemy
 from google.oauth2 import id_token
-from google_auth_oauthlib.flow import Flow
 
+from google_auth import get_flow
+
+load_dotenv()
+DB_USER = os.getenv("DB_USER")
+DB_PASS = os.getenv("DB_PASS")
+DB_HOST = os.getenv("DB_HOST")
+DB_PORT = os.getenv("DB_PORT")
+DB_NAME = os.getenv("DB_NAME")
+
+db = SQLAlchemy()
 app = Flask(__name__)
 app.secret_key = json.load(open("client_secret.json", "r"))["web"]["client_secret"]
 
-os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+app.config["SQLALCHEMY_DATABASE_URI"] = f"mariadb+mariadbconnector://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+db.init_app(app)
 
-GOOGLE_CLIENT_ID = json.load(open("client_secret.json", "r"))["web"]["client_id"]
-client_secrets_file = os.path.join(pathlib.Path(__file__).parent, "client_secret.json")
-
-flow = Flow.from_client_secrets_file(client_secrets_file=client_secrets_file,
-                                     scopes=["https://www.googleapis.com/auth/userinfo.email",
-                                             "openid",
-                                             "https://www.googleapis.com/auth/userinfo.profile"],
-                                     redirect_uri="http://127.0.0.1:5000/callback")
+flow, GOOGLE_CLIENT_ID = get_flow()
 
 model = tf.keras.models.load_model('models/vehicle_classification_2022-12-24_14-34-13.h5')
 
@@ -58,6 +63,20 @@ def guide():
     return render_template('guide.html')
 
 
+class User(db.Model):
+    __tablename__ = "users"
+    id = db.Column(db.Integer, primary_key=True)
+    google_id = db.Column(db.String(255), unique=True, nullable=False)
+    email = db.Column(db.String(255), unique=True, nullable=False)
+    password = db.Column(db.String(255), nullable=False)
+    name = db.Column(db.String(255), nullable=False)
+    picture = db.Column(db.String(255), nullable=False)
+    interest = db.Column(db.String(255), nullable=False)
+    trusted = db.Column(db.Boolean, nullable=False)
+    created_at = db.Column(db.DateTime, default=sqlalchemy.func.now())
+    updated_at = db.Column(db.DateTime, default=sqlalchemy.func.now(), onupdate=sqlalchemy.func.now())
+
+
 @app.route("/login")
 def login():
     authorization_url, state = flow.authorization_url()
@@ -68,6 +87,40 @@ def login():
 @app.route("/logout")
 def logout():
     session.clear()
+    return redirect("/")
+
+
+@app.route("/register", methods=["POST"])
+def register():
+    credentials = flow.credentials
+    request_session = requests.session()
+    cached_session = cachecontrol.CacheControl(request_session)
+    token_request = google.auth.transport.requests.Request(session=cached_session)
+
+    id_info = google.oauth2.id_token.verify_oauth2_token(
+        id_token=credentials._id_token,
+        request=token_request,
+        audience=GOOGLE_CLIENT_ID
+    )
+
+    # Check if user already exists
+    user = User.query.filter_by(google_id=id_info["sub"]).first()
+    if user is not None:
+        return redirect("/")
+    else:
+        # Add the user to the database
+        user = User(
+            google_id=id_info["sub"],
+            email=id_info["email"],
+            password="",
+            name=id_info["name"],
+            picture=id_info["picture"],
+            interest="",
+            trusted=False
+        )
+        db.session.add(user)
+        db.session.commit()
+
     return redirect("/")
 
 
@@ -89,7 +142,16 @@ def callback():
         audience=GOOGLE_CLIENT_ID
     )
     session["google_id"] = id_info["sub"]
-    return redirect("/")
+
+    # Verify if the user exists in the database
+    user = User.query.filter_by(google_id=session["google_id"]).first()
+
+    if user is None:
+        # Present a privacy policy and ask for consent
+        return render_template("privacy.html")
+    else:
+        # Log the user in
+        return redirect("/")
 
 
 @app.route('/download')
@@ -159,4 +221,4 @@ def predict():
 
 
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True)
