@@ -8,13 +8,12 @@ import cv2
 import google
 import numpy as np
 import requests
-import sqlalchemy
 import tensorflow as tf
 from dotenv import load_dotenv
 from flask import Flask, render_template, session, abort, redirect, request, jsonify, send_file
-from flask_sqlalchemy import SQLAlchemy
 from google.oauth2 import id_token
 
+from classes.User import User, db
 from google_auth import get_flow
 
 load_dotenv()
@@ -24,7 +23,6 @@ DB_HOST = os.getenv("DB_HOST")
 DB_PORT = os.getenv("DB_PORT")
 DB_NAME = os.getenv("DB_NAME")
 
-db = SQLAlchemy()
 app = Flask(__name__)
 app.secret_key = json.load(open("client_secret.json", "r"))["web"]["client_secret"]
 
@@ -61,20 +59,6 @@ def scan():
 @app.route('/guide')
 def guide():
     return render_template('guide.html')
-
-
-class User(db.Model):
-    __tablename__ = "users"
-    id = db.Column(db.Integer, primary_key=True)
-    google_id = db.Column(db.String(255), unique=True, nullable=False)
-    email = db.Column(db.String(255), unique=True, nullable=False)
-    password = db.Column(db.String(255), nullable=False)
-    name = db.Column(db.String(255), nullable=False)
-    picture = db.Column(db.String(255), nullable=False)
-    interest = db.Column(db.String(255), nullable=False)
-    trusted = db.Column(db.Boolean, nullable=False)
-    created_at = db.Column(db.DateTime, default=sqlalchemy.func.now())
-    updated_at = db.Column(db.DateTime, default=sqlalchemy.func.now(), onupdate=sqlalchemy.func.now())
 
 
 @app.route("/login")
