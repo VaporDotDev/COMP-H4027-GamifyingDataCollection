@@ -34,18 +34,28 @@
                 var xhr = new XMLHttpRequest();
                 xhr.open('POST', '/predict', true);
                 xhr.onload = function () {
-                    console.log(xhr.responseText);
                     var response = JSON.parse(xhr.responseText);
-                    var xmin = Math.round(response.prediction[0][0] * canvas.width);
-                    var xmax = Math.round(response.prediction[0][1] * canvas.width);
-                    var ymin = Math.round(response.prediction[0][2] * canvas.height);
-                    var ymax = Math.round(response.prediction[0][3] * canvas.height);
-                    console.log(xmin, xmax, ymin, ymax);
+                    var preds_plate = response.plate;
+                    var preds_vehicle = response.vehicle;
+                    var xmin_plate = Math.round(preds_plate[0][0] * canvas.width);
+                    var ymin_plate = Math.round(preds_plate[0][1] * canvas.height);
+                    var xmax_plate = Math.round(preds_plate[0][2] * canvas.width);
+                    var ymax_plate = Math.round(preds_plate[0][3] * canvas.height);
+                    var xmin_vehicle = Math.round(preds_vehicle[0][0] * canvas.width);
+                    var ymin_vehicle = Math.round(preds_vehicle[0][1] * canvas.height);
+                    var xmax_vehicle = Math.round(preds_vehicle[0][2] * canvas.width);
+                    var ymax_vehicle = Math.round(preds_vehicle[0][3] * canvas.height);
 
                     var context = canvas.getContext('2d');
                     context.beginPath();
                     context.strokeStyle = "red";
-                    context.rect(xmin, ymin, xmax - xmin, ymax - ymin);
+                    context.lineWidth = 2;
+                    context.rect(xmin_plate, ymin_plate, xmax_plate - xmin_plate, ymax_plate - ymin_plate);
+                    context.stroke();
+                    context.beginPath();
+                    context.strokeStyle = "blue";
+                    context.lineWidth = 2;
+                    context.rect(xmin_vehicle, ymin_vehicle, xmax_vehicle - xmin_vehicle, ymax_vehicle - ymin_vehicle);
                     context.stroke();
                 };
                 xhr.send(formData);
@@ -53,7 +63,7 @@
         }
 
         window.onload = function () {
-            if (isMobile()) {
+            if (!isMobile()) {
                 document.querySelector('button[onclick="submitForm()"]').style.display = 'inline-block';
                 document.querySelector('button label[for="Scan"]').parentNode.style.display = 'inline-block';
             } else {

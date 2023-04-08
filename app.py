@@ -31,7 +31,8 @@ db.init_app(app)
 
 flow, GOOGLE_CLIENT_ID = get_flow()
 
-model = tf.keras.models.load_model('models/vehicle_classification_2022-12-24_14-34-13.h5')
+plate_model = tf.keras.models.load_model('models/plate.h5')
+vehicle_model = tf.keras.models.load_model('models/vehicle.h5')
 
 
 def login_is_required(f):
@@ -185,22 +186,36 @@ def predict():
         image = image[..., :3]
 
     # Make a prediction with the model
-    prediction = model.predict(image[np.newaxis, ...])
+    plate_prediction = plate_model.predict(image[np.newaxis, ...])
+    vehicle_prediction = vehicle_model.predict(image[np.newaxis, ...])
 
     # Create a CSV file with image name and prediction
     with open('images/data.csv', 'a') as f:
         # Get the prediction values
-        xmin, xmax, ymin, ymax = prediction[0]
-        # Multiply the values by the image width and height
-        xmin, xmax, ymin, ymax = xmin * image.shape[1], xmax * image.shape[1], ymin * image.shape[0], ymax * \
-                                 image.shape[0]
-        # Convert the values to integers
-        xmin, xmax, ymin, ymax = int(xmin), int(xmax), int(ymin), int(ymax)
-        # Write the values to the CSV file
-        f.write(f"image_{num_files + 1}.tiff,{xmin},{xmax},{ymin},{ymax}\n")
+        xmin_plate, ymin_plate, xmax_plate, ymax_plate = plate_prediction[0]
+        xmin_vehicle, ymin_vehicle, xmax_vehicle, ymax_vehicle = vehicle_prediction[0]
 
-    print(prediction)
-    response = {"prediction": prediction.tolist()}
+        # Multiply the values by the image width and height
+        xmin_plate, ymin_plate, xmax_plate, ymax_plate = xmin_plate * image.shape[1], ymin_plate * image.shape[
+            0], xmax_plate * image.shape[1], ymax_plate * image.shape[0]
+        xmin_vehicle, ymin_vehicle, xmax_vehicle, ymax_vehicle = xmin_vehicle * image.shape[1], ymin_vehicle * \
+                                                                 image.shape[0], xmax_vehicle * image.shape[
+                                                                     1], ymax_vehicle * image.shape[0]
+
+        # Convert the values to integers
+        xmin_plate, ymin_plate, xmax_plate, ymax_plate = int(xmin_plate), int(xmin_plate), int(xmax_plate), int(
+            ymax_plate)
+        xmin_vehicle, ymin_vehicle, xmax_vehicle, ymax_vehicle = int(xmin_vehicle), int(ymin_vehicle), int(
+            xmax_vehicle), int(ymax_vehicle)
+
+        # Write the values to the CSV file
+        f.write(f"image_{num_files + 1}.tiff,{xmin_plate},{ymin_plate},{xmax_plate},{ymax_plate},Plate\n")
+        f.write(f"image_{num_files + 1}.tiff,{xmin_vehicle},{ymin_vehicle},{xmax_vehicle},{ymax_vehicle},Vehicle\n")
+    response = {
+        "plate": plate_prediction.tolist(),
+        "vehicle": vehicle_prediction.tolist()
+    }
+
     return jsonify(response)
 
 
