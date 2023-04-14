@@ -5,7 +5,10 @@ from functools import wraps
 
 import cachecontrol as cachecontrol
 import cv2
+import easyocr
 import google
+import imutils as imutils
+import matplotlib.pyplot as plt
 import numpy as np
 import requests
 import tensorflow as tf
@@ -16,7 +19,7 @@ from google.oauth2 import id_token
 from classes.User import User, db
 from google_auth import get_flow
 
-load_dotenv()
+load_dotenv(".env")
 DB_USER = os.getenv("DB_USER")
 DB_PASS = os.getenv("DB_PASS")
 DB_HOST = os.getenv("DB_HOST")
@@ -47,7 +50,7 @@ def login_is_required(f):
 
 
 @app.route('/')
-def hello_world():  # put application's code here
+def home():  # put application's code here
     return render_template('index.html')
 
 
@@ -94,17 +97,8 @@ def register():
         return redirect("/")
     else:
         # Add the user to the database
-        user = User(
-            google_id=id_info["sub"],
-            email=id_info["email"],
-            password="",
-            name=id_info["name"],
-            picture=id_info["picture"],
-            interest="",
-            trusted=False
-        )
-        db.session.add(user)
-        db.session.commit()
+        User.create_user(google_id=id_info["sub"], name=id_info["name"], email=id_info["email"],
+                         picture=id_info["picture"])
 
     return redirect("/")
 
@@ -166,6 +160,9 @@ def predict():
     # Convert the image to a numpy array
     image = np.frombuffer(image, np.uint8)
 
+    # Create a copy of the image
+    image_copy = image.copy()
+
     # Decode the image using the TIFF flag
     image = cv2.imdecode(image, cv2.IMREAD_UNCHANGED | cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
 
@@ -209,13 +206,49 @@ def predict():
             xmax_vehicle), int(ymax_vehicle)
 
         # Write the values to the CSV file
-        f.write(f"image_{num_files + 1}.tiff,{xmin_plate},{ymin_plate},{xmax_plate},{ymax_plate},Plate\n")
+        f.write(f"image_{num_files + 1}.tiff,{xmin_plate},{ymin_plate},{xmax_plate},{ymax_plate},Plate\n", )
         f.write(f"image_{num_files + 1}.tiff,{xmin_vehicle},{ymin_vehicle},{xmax_vehicle},{ymax_vehicle},Vehicle\n")
+    try:
+        image_copy = np.frombuffer(image_copy, np.uint8)
+        image_copy = cv2.imdecode(image_copy, cv2.IMREAD_UNCHANGED | cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
+        image_copy = cv2.cvtColor(image_copy, cv2.COLOR_BGR2GRAY)
+        plt.imshow(cv2.cvtColor(image_copy, cv2.COLOR_BGR2RGB))
+        plt.show()
+        bf = cv2.bilateralFilter(image_copy, 11, 17, 17)
+        edged = cv2.Canny(bf, 30, 200)
+        plt.imshow(cv2.cvtColor(edged, cv2.COLOR_BGR2RGB))
+        plt.show()
+        keyprint = cv2.findContours(edged.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        contours = imutils.grab_contours(keyprint)
+        contours = sorted(contours, key=cv2.contourArea, reverse=True)[:10]
+        screenCnt = None
+        print(len(contours))
+        for c in contours:
+            approx = cv2.approxPolyDP(c, 10, True)
+            if len(approx) == 4:
+                screenCnt = approx
+                break
+        mask = np.zeros(image_copy.shape, np.uint8)
+        cv2.drawContours(mask, [screenCnt], 0, 255, -1, )
+        new_image = cv2.bitwise_and(image_copy, image_copy, mask=mask)
+        plt.imshow(cv2.cvtColor(new_image, cv2.COLOR_BGR2RGB))
+        plt.show()
+        (x, y) = np.where(mask == 255)
+        (topx, topy) = (np.min(x), np.min(y))
+        (bottomx, bottomy) = (np.max(x), np.max(y))
+        Cropped = image_copy[topx:bottomx + 1, topy:bottomy + 1]
+        plt.imshow(cv2.cvtColor(Cropped, cv2.COLOR_BGR2RGB))
+        plt.show()
+        reader = easyocr.Reader(['en'])
+        result = reader.readtext(Cropped, detail=0)
+        print(result)
+    except:
+        print("No license plate found")
+
     response = {
         "plate": plate_prediction.tolist(),
         "vehicle": vehicle_prediction.tolist()
     }
-
     return jsonify(response)
 
 

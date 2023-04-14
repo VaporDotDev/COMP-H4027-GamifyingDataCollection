@@ -16,3 +16,10 @@ class User(db.Model):
     trusted = db.Column(db.Boolean, nullable=False)
     created_at = db.Column(db.DateTime, default=sqlalchemy.func.now())
     updated_at = db.Column(db.DateTime, default=sqlalchemy.func.now(), onupdate=sqlalchemy.func.now())
+
+    @staticmethod
+    def create_user(google_id="", email="", password="", name="", picture="", interest="Un-Set", trusted=False):
+        user = User(google_id=google_id, email=email, password=password, name=name, picture=picture, interest=interest,
+                    trusted=trusted)
+        db.session.add(user)
+        db.session.commit()
