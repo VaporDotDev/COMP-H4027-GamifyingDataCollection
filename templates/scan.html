@@ -80,10 +80,6 @@
 <button style="display: none"><label for="Scan">Scan</label></button>
 <input id="Scan" type="file" accept="image/*" capture="environment" style="visibility: hidden">
 <canvas></canvas>
-<ul>
-    <li><a href="/">Home</a></li>
-    <li><a href="/guide">Guide</a></li>
-    <li><a href="/scan">Scan</a></li>
-</ul>
+{% include 'navbar.html' %}
 </body>
 </html>

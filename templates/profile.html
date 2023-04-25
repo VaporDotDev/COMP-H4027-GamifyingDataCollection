@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Profile</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<h1>Profile</h1>
+{% include 'navbar.html' %}
+<div>
+    <h2>Hello, {{ user.name }}</h2>
+    <img src="{{ user.picture }}" alt="Profile Picture">
+    <p>Points: {{ user.points }}</p>
+</div>
+</body>
+</html>

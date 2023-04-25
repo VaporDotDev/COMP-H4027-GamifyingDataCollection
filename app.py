@@ -1,5 +1,6 @@
 import json
 import os
+import uuid
 import zipfile
 from functools import wraps
 
@@ -7,7 +8,6 @@ import cachecontrol as cachecontrol
 import cv2
 import easyocr
 import google
-import matplotlib.pyplot as plt
 import numpy as np
 import requests
 import tensorflow as tf
@@ -24,6 +24,7 @@ from flask import (
 )
 from google.oauth2 import id_token
 
+from classes.Gamification import p_year, p_registration
 from classes.User import User, db
 from google_auth import get_flow
 
@@ -143,22 +144,21 @@ def callback():
         return redirect("/")
 
 
-@app.route("/download")
+@app.route('/download')
 @login_is_required
 def download():
-    # Create a zip file
-    with zipfile.ZipFile("images.zip", "w") as zip_file:
-        # Write each file in the images directory to the zip file
-        for filename in os.listdir("images"):
-            zip_file.write(os.path.join("images", filename))
+    # Create a zip file of images
+    with zipfile.ZipFile('images.zip', 'w') as zip_file:
+        for filename in os.listdir('images'):
+            zip_file.write(os.path.join('images', filename))
 
     # Send the zip file to the user
-    response = send_file("images.zip", as_attachment=True)
-
-    # Delete the zip file
-    os.remove("images.zip")
-
-    return response
+    try:
+        return send_file('images.zip', as_attachment=True)
+    finally:
+        # Make sure the file is closed and then delete it
+        if os.path.exists('images.zip'):
+            os.remove('images.zip')
 
 
 @app.route("/predict", methods=["POST", "GET"])
@@ -178,11 +178,9 @@ def predict():
         image, cv2.IMREAD_UNCHANGED | cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH
     )
 
-    # Get the number of files in the images folder excluding the CSV file
-    num_files = len([file for file in os.listdir("images") if file.endswith(".tiff")])
-
-    # Save the image to disk with incremented file name
-    cv2.imwrite(f"images/image_{num_files + 1}.tiff", image)
+    # Save the image to disk with random filename
+    filename = str(uuid.uuid4()) + ".jpg"
+    cv2.imwrite(os.path.join("images", filename), image)
 
     # Resize the image to (224, 224)
     image = cv2.resize(image, (224, 224))
@@ -225,16 +223,6 @@ def predict():
         int(ymax_plate),
     )
 
-    # Create a CSV file with image name and prediction
-    with open("images/data.csv", "a") as f:
-        # Write the values to the CSV file
-        f.write(
-            f"image_{num_files + 1}.tiff,{xmin_plate},{ymin_plate},{xmax_plate},{ymax_plate},Plate\n",
-        )
-        f.write(
-            f"image_{num_files + 1}.tiff,{xmin_vehicle},{ymin_vehicle},{xmax_vehicle},{ymax_vehicle},Vehicle\n"
-        )
-
     image_copy = np.frombuffer(image_copy, np.uint8)
     image_copy = cv2.imdecode(
         image_copy, cv2.IMREAD_UNCHANGED | cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH
@@ -259,8 +247,6 @@ def predict():
 
     # Crop the image
     plate = image_copy[ymin_roi - 20: ymax_roi + 20, xmin_roi - 20: xmax_roi + 20]
-    plt.imshow(cv2.cvtColor(plate, cv2.COLOR_BGR2RGB))
-    plt.show()
     reader = easyocr.Reader(["en"])
     result = reader.readtext(plate, detail=0)
 
@@ -399,13 +385,35 @@ def predict():
     formatted_plate = "{}-{}-{}".format(result[:3], result[4:5], result[6:])
     formatted_plate = formatted_plate.replace(" ", "")
     formatted_plate = formatted_plate.upper()
+
+    # Create a CSV file with image name and prediction
+    with open("images/data.csv", "a") as f:
+        # Write the values to the CSV file
+        f.write(
+            f"image_{filename}.tiff,{xmin_plate},{ymin_plate},{xmax_plate},{ymax_plate},{formatted_plate},Plate\n",
+        )
+        f.write(
+            f"image_{filename}.tiff,{xmin_vehicle},{ymin_vehicle},{xmax_vehicle},{ymax_vehicle},{formatted_plate},Vehicle\n"
+        )
+
     response = {
         "plate": plate_prediction.tolist(),
         "vehicle": vehicle_prediction.tolist(),
         "license_plate": formatted_plate,
     }
+    # Get the users google id
+    google_id = session["google_id"]
+    p_year(formatted_plate, google_id)
+    p_registration(formatted_plate, google_id)
 
     return jsonify(response)
+
+
+@app.route("/profile", methods=["GET", "POST"])
+@login_is_required
+def profile():
+    user = User.query.filter_by(google_id=session["google_id"]).first()
+    return render_template("profile.html", user=user)
 
 
 if __name__ == "__main__":
