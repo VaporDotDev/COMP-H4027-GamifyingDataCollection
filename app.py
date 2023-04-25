@@ -7,13 +7,21 @@ import cachecontrol as cachecontrol
 import cv2
 import easyocr
 import google
-import imutils as imutils
 import matplotlib.pyplot as plt
 import numpy as np
 import requests
 import tensorflow as tf
 from dotenv import load_dotenv
-from flask import Flask, render_template, session, abort, redirect, request, jsonify, send_file
+from flask import (
+    Flask,
+    render_template,
+    session,
+    abort,
+    redirect,
+    request,
+    jsonify,
+    send_file,
+)
 from google.oauth2 import id_token
 
 from classes.User import User, db
@@ -29,13 +37,15 @@ DB_NAME = os.getenv("DB_NAME")
 app = Flask(__name__)
 app.secret_key = json.load(open("client_secret.json", "r"))["web"]["client_secret"]
 
-app.config["SQLALCHEMY_DATABASE_URI"] = f"mariadb+mariadbconnector://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+app.config[
+    "SQLALCHEMY_DATABASE_URI"
+] = f"mariadb+mariadbconnector://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 db.init_app(app)
 
 flow, GOOGLE_CLIENT_ID = get_flow()
 
-plate_model = tf.keras.models.load_model('models/plate.h5')
-vehicle_model = tf.keras.models.load_model('models/vehicle.h5')
+plate_model = tf.keras.models.load_model("models/plate.h5")
+vehicle_model = tf.keras.models.load_model("models/vehicle.h5")
 
 
 def login_is_required(f):
@@ -49,20 +59,20 @@ def login_is_required(f):
     return wrapper
 
 
-@app.route('/')
+@app.route("/")
 def home():  # put application's code here
-    return render_template('index.html')
+    return render_template("index.html")
 
 
-@app.route('/scan')
+@app.route("/scan")
 @login_is_required
 def scan():
-    return render_template('scan.html')
+    return render_template("scan.html")
 
 
-@app.route('/guide')
+@app.route("/guide")
 def guide():
-    return render_template('guide.html')
+    return render_template("guide.html")
 
 
 @app.route("/login")
@@ -86,9 +96,7 @@ def register():
     token_request = google.auth.transport.requests.Request(session=cached_session)
 
     id_info = google.oauth2.id_token.verify_oauth2_token(
-        id_token=credentials._id_token,
-        request=token_request,
-        audience=GOOGLE_CLIENT_ID
+        id_token=credentials._id_token, request=token_request, audience=GOOGLE_CLIENT_ID
     )
 
     # Check if user already exists
@@ -97,8 +105,12 @@ def register():
         return redirect("/")
     else:
         # Add the user to the database
-        User.create_user(google_id=id_info["sub"], name=id_info["name"], email=id_info["email"],
-                         picture=id_info["picture"])
+        User.create_user(
+            google_id=id_info["sub"],
+            name=id_info["name"],
+            email=id_info["email"],
+            picture=id_info["picture"],
+        )
 
     return redirect("/")
 
@@ -116,9 +128,7 @@ def callback():
     token_request = google.auth.transport.requests.Request(session=cached_session)
 
     id_info = google.oauth2.id_token.verify_oauth2_token(
-        id_token=credentials._id_token,
-        request=token_request,
-        audience=GOOGLE_CLIENT_ID
+        id_token=credentials._id_token, request=token_request, audience=GOOGLE_CLIENT_ID
     )
     session["google_id"] = id_info["sub"]
 
@@ -133,7 +143,7 @@ def callback():
         return redirect("/")
 
 
-@app.route('/download')
+@app.route("/download")
 @login_is_required
 def download():
     # Create a zip file
@@ -151,11 +161,11 @@ def download():
     return response
 
 
-@app.route('/predict', methods=['POST', 'GET'])
+@app.route("/predict", methods=["POST", "GET"])
 @login_is_required
 def predict():
     # Get the image from the request
-    image = request.files['image'].read()
+    image = request.files["image"].read()
 
     # Convert the image to a numpy array
     image = np.frombuffer(image, np.uint8)
@@ -164,10 +174,12 @@ def predict():
     image_copy = image.copy()
 
     # Decode the image using the TIFF flag
-    image = cv2.imdecode(image, cv2.IMREAD_UNCHANGED | cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
+    image = cv2.imdecode(
+        image, cv2.IMREAD_UNCHANGED | cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH
+    )
 
     # Get the number of files in the images folder excluding the CSV file
-    num_files = len([file for file in os.listdir('images') if file.endswith('.tiff')])
+    num_files = len([file for file in os.listdir("images") if file.endswith(".tiff")])
 
     # Save the image to disk with incremented file name
     cv2.imwrite(f"images/image_{num_files + 1}.tiff", image)
@@ -183,74 +195,218 @@ def predict():
         image = image[..., :3]
 
     # Make a prediction with the model
-    plate_prediction = plate_model.predict(image[np.newaxis, ...])
     vehicle_prediction = vehicle_model.predict(image[np.newaxis, ...])
+    xmin_vehicle, ymin_vehicle, xmax_vehicle, ymax_vehicle = vehicle_prediction[0]
+    xmin_vehicle, ymin_vehicle, xmax_vehicle, ymax_vehicle = (
+        xmin_vehicle * image.shape[1],
+        ymin_vehicle * image.shape[0],
+        xmax_vehicle * image.shape[1],
+        ymax_vehicle * image.shape[0],
+    )
+    xmin_vehicle, ymin_vehicle, xmax_vehicle, ymax_vehicle = (
+        int(xmin_vehicle),
+        int(ymin_vehicle),
+        int(xmax_vehicle),
+        int(ymax_vehicle),
+    )
+
+    plate_prediction = plate_model.predict(image[np.newaxis, ...])
+    xmin_plate, ymin_plate, xmax_plate, ymax_plate = plate_prediction[0]
+    xmin_plate, ymin_plate, xmax_plate, ymax_plate = (
+        xmin_plate * image.shape[1],
+        ymin_plate * image.shape[0],
+        xmax_plate * image.shape[1],
+        ymax_plate * image.shape[0],
+    )
+    xmin_plate, ymin_plate, xmax_plate, ymax_plate = (
+        int(xmin_plate),
+        int(xmin_plate),
+        int(xmax_plate),
+        int(ymax_plate),
+    )
 
     # Create a CSV file with image name and prediction
-    with open('images/data.csv', 'a') as f:
-        # Get the prediction values
-        xmin_plate, ymin_plate, xmax_plate, ymax_plate = plate_prediction[0]
-        xmin_vehicle, ymin_vehicle, xmax_vehicle, ymax_vehicle = vehicle_prediction[0]
-
-        # Multiply the values by the image width and height
-        xmin_plate, ymin_plate, xmax_plate, ymax_plate = xmin_plate * image.shape[1], ymin_plate * image.shape[
-            0], xmax_plate * image.shape[1], ymax_plate * image.shape[0]
-        xmin_vehicle, ymin_vehicle, xmax_vehicle, ymax_vehicle = xmin_vehicle * image.shape[1], ymin_vehicle * \
-                                                                 image.shape[0], xmax_vehicle * image.shape[
-                                                                     1], ymax_vehicle * image.shape[0]
-
-        # Convert the values to integers
-        xmin_plate, ymin_plate, xmax_plate, ymax_plate = int(xmin_plate), int(xmin_plate), int(xmax_plate), int(
-            ymax_plate)
-        xmin_vehicle, ymin_vehicle, xmax_vehicle, ymax_vehicle = int(xmin_vehicle), int(ymin_vehicle), int(
-            xmax_vehicle), int(ymax_vehicle)
-
+    with open("images/data.csv", "a") as f:
         # Write the values to the CSV file
-        f.write(f"image_{num_files + 1}.tiff,{xmin_plate},{ymin_plate},{xmax_plate},{ymax_plate},Plate\n", )
-        f.write(f"image_{num_files + 1}.tiff,{xmin_vehicle},{ymin_vehicle},{xmax_vehicle},{ymax_vehicle},Vehicle\n")
-    try:
-        image_copy = np.frombuffer(image_copy, np.uint8)
-        image_copy = cv2.imdecode(image_copy, cv2.IMREAD_UNCHANGED | cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
-        image_copy = cv2.cvtColor(image_copy, cv2.COLOR_BGR2GRAY)
-        plt.imshow(cv2.cvtColor(image_copy, cv2.COLOR_BGR2RGB))
-        plt.show()
-        bf = cv2.bilateralFilter(image_copy, 11, 17, 17)
-        edged = cv2.Canny(bf, 30, 200)
-        plt.imshow(cv2.cvtColor(edged, cv2.COLOR_BGR2RGB))
-        plt.show()
-        keyprint = cv2.findContours(edged.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        contours = imutils.grab_contours(keyprint)
-        contours = sorted(contours, key=cv2.contourArea, reverse=True)[:10]
-        screenCnt = None
-        print(len(contours))
-        for c in contours:
-            approx = cv2.approxPolyDP(c, 10, True)
-            if len(approx) == 4:
-                screenCnt = approx
-                break
-        mask = np.zeros(image_copy.shape, np.uint8)
-        cv2.drawContours(mask, [screenCnt], 0, 255, -1, )
-        new_image = cv2.bitwise_and(image_copy, image_copy, mask=mask)
-        plt.imshow(cv2.cvtColor(new_image, cv2.COLOR_BGR2RGB))
-        plt.show()
-        (x, y) = np.where(mask == 255)
-        (topx, topy) = (np.min(x), np.min(y))
-        (bottomx, bottomy) = (np.max(x), np.max(y))
-        Cropped = image_copy[topx:bottomx + 1, topy:bottomy + 1]
-        plt.imshow(cv2.cvtColor(Cropped, cv2.COLOR_BGR2RGB))
-        plt.show()
-        reader = easyocr.Reader(['en'])
-        result = reader.readtext(Cropped, detail=0)
-        print(result)
-    except:
-        print("No license plate found")
+        f.write(
+            f"image_{num_files + 1}.tiff,{xmin_plate},{ymin_plate},{xmax_plate},{ymax_plate},Plate\n",
+        )
+        f.write(
+            f"image_{num_files + 1}.tiff,{xmin_vehicle},{ymin_vehicle},{xmax_vehicle},{ymax_vehicle},Vehicle\n"
+        )
 
+    image_copy = np.frombuffer(image_copy, np.uint8)
+    image_copy = cv2.imdecode(
+        image_copy, cv2.IMREAD_UNCHANGED | cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH
+    )
+    image_copy = cv2.cvtColor(image_copy, cv2.COLOR_BGR2GRAY)
+    # Get the coordinates of the plate
+    xmin_roi, ymin_roi, xmax_roi, ymax_roi = plate_prediction[0]
+    # Scale the coordinates according to the image size
+    xmin_roi, ymin_roi, xmax_roi, ymax_roi = (
+        xmin_roi * image_copy.shape[1],
+        ymin_roi * image_copy.shape[0],
+        xmax_roi * image_copy.shape[1],
+        ymax_roi * image_copy.shape[0],
+    )
+    # Convert the coordinates to integers
+    xmin_roi, ymin_roi, xmax_roi, ymax_roi = (
+        int(xmin_roi),
+        int(ymin_roi),
+        int(xmax_roi),
+        int(ymax_roi),
+    )
+
+    # Crop the image
+    plate = image_copy[ymin_roi - 20: ymax_roi + 20, xmin_roi - 20: xmax_roi + 20]
+    plt.imshow(cv2.cvtColor(plate, cv2.COLOR_BGR2RGB))
+    plt.show()
+    reader = easyocr.Reader(["en"])
+    result = reader.readtext(plate, detail=0)
+
+    most_rep = ''
+
+    if len(result) > 0:
+        for res in result:
+            digit_count = sum(c.isdigit() for c in res)
+            if digit_count > sum(c.isdigit() for c in most_rep):
+                most_rep = res
+
+    result = most_rep
+    result = result.replace("-", " ")
+    # Verify if the first three characters are digits
+    if result[:3].isdigit():
+        pass
+    else:
+        # Find which character is not a digit
+        for i, char in enumerate(result[:3]):
+            if not char.isdigit():
+                # If the character is a 'i' or 'I' replace it with a '1'
+                if char == "i" or char == "I":
+                    result = result[:i] + "1" + result[i + 1:]
+                # If the character is a 'o' or 'O' replace it with a '0'
+                elif char == "o" or char == "O":
+                    result = result[:i] + "0" + result[i + 1:]
+                # If the character is a 's' or 'S' replace it with a '5'
+                elif char == "s" or char == "S":
+                    result = result[:i] + "5" + result[i + 1:]
+                # If the character is a 'z' or 'Z' replace it with a '7'
+                elif char == "z" or char == "Z":
+                    result = result[:i] + "7" + result[i + 1:]
+                # If the character is a 'q' or 'Q' replace it with a '9'
+                elif char == "q" or char == "Q":
+                    result = result[:i] + "9" + result[i + 1:]
+                # If the character is a 'b' or 'B' replace it with a '8'
+                elif char == "b" or char == "B":
+                    result = result[:i] + "8" + result[i + 1:]
+                # If the character is a 'g' or 'G' replace it with a '6'
+                elif char == "g" or char == "G":
+                    result = result[:i] + "6" + result[i + 1:]
+                # If the character is a 't' or 'T' replace it with a '7'
+                elif char == "t" or char == "T":
+                    result = result[:i] + "7" + result[i + 1:]
+                # If the character is a 'l' or 'L' replace it with a '1'
+                elif char == "l" or char == "L":
+                    result = result[:i] + "1" + result[i + 1:]
+                # If the character is a 'e' or 'E' replace it with a '3'
+                elif char == "e" or char == "E":
+                    result = result[:i] + "3" + result[i + 1:]
+                # If the character is a 'j' or 'J' replace it with a '1'
+                elif char == "j" or char == "J":
+                    result = result[:i] + "1" + result[i + 1:]
+                # If the character is a 'p' or 'P' replace it with a '9'
+                elif char == "p" or char == "P":
+                    result = result[:i] + "9" + result[i + 1:]
+    # Verify if the 5th and 6th characters are alpha or an alpha and a space
+    if (result[4:6].isalpha()) or (result[4:6].isalpha() and result[5] == " "):
+        pass
+    else:
+        # Find which character is not a character
+        for i, char in enumerate(result[4:6]):
+            # If the digit is a '0' replace it with a 'D'
+            if char == "0":
+                result = result[:i + 4] + "D" + result[i + 5:]
+            # If the digit is a '1' replace it with a 'I'
+            elif char == "1":
+                result = result[:i + 4] + "I" + result[i + 5:]
+            # If the digit is a '2' replace it with a 'Z'
+            elif char == "2":
+                result = result[:i + 4] + "Z" + result[i + 5:]
+            # If the digit is a '3' replace it with a 'E'
+            elif char == "3":
+                result = result[:i + 4] + "E" + result[i + 5:]
+            # If the digit is a '4' replace it with a 'A'
+            elif char == "4":
+                result = result[:i + 4] + "A" + result[i + 5:]
+            # If the digit is a '5' replace it with a 'S'
+            elif char == "5":
+                result = result[:i + 4] + "S" + result[i + 5:]
+            # If the digit is a '6' replace it with a 'G'
+            elif char == "6":
+                result = result[:i + 4] + "G" + result[i + 5:]
+            # If the digit is a '7' replace it with a 'T'
+            elif char == "7":
+                result = result[:i + 4] + "T" + result[i + 5:]
+            # If the digit is a '8' replace it with a 'B'
+            elif char == "8":
+                result = result[:i + 4] + "B" + result[i + 5:]
+            # If the digit is a '9' replace it with a 'P'
+            elif char == "9":
+                result = result[:i + 4] + "P" + result[i + 5:]
+    # Verify if the resultt of the characters are digits
+    if result[6:].isdigit():
+        pass
+    else:
+        # Find which character is not a digit
+        for i, char in enumerate(result[:3]):
+            if not char.isdigit():
+                # If the character is a 'i' or 'I' replace it with a '1'
+                if char == "i" or char == "I":
+                    result = result[:i] + "1" + result[i + 1:]
+                # If the character is a 'o' or 'O' replace it with a '0'
+                elif char == "o" or char == "O":
+                    result = result[:i] + "0" + result[i + 1:]
+                # If the character is a 's' or 'S' replace it with a '5'
+                elif char == "s" or char == "S":
+                    result = result[:i] + "5" + result[i + 1:]
+                # If the character is a 'z' or 'Z' replace it with a '2'
+                elif char == "z" or char == "Z":
+                    result = result[:i] + "2" + result[i + 1:]
+                # If the character is a 'q' or 'Q' replace it with a '9'
+                elif char == "q" or char == "Q":
+                    result = result[:i] + "9" + result[i + 1:]
+                # If the character is a 'b' or 'B' replace it with a '8'
+                elif char == "b" or char == "B":
+                    result = result[:i] + "8" + result[i + 1:]
+                # If the character is a 'g' or 'G' replace it with a '6'
+                elif char == "g" or char == "G":
+                    result = result[:i] + "6" + result[i + 1:]
+                # If the character is a 't' or 'T' replace it with a '7'
+                elif char == "t" or char == "T":
+                    result = result[:i] + "7" + result[i + 1:]
+                # If the character is a 'l' or 'L' replace it with a '1'
+                elif char == "l" or char == "L":
+                    result = result[:i] + "1" + result[i + 1:]
+                # If the character is a 'e' or 'E' replace it with a '3'
+                elif char == "e" or char == "E":
+                    result = result[:i] + "3" + result[i + 1:]
+                # If the character is a 'j' or 'J' replace it with a '1'
+                elif char == "j" or char == "J":
+                    result = result[:i] + "1" + result[i + 1:]
+                # If the character is a 'p' or 'P' replace it with a '9'
+                elif char == "p" or char == "P":
+                    result = result[:i] + "9" + result[i + 1:]
+    formatted_plate = "{}-{}-{}".format(result[:3], result[4:5], result[6:])
+    formatted_plate = formatted_plate.replace(" ", "")
+    formatted_plate = formatted_plate.upper()
     response = {
         "plate": plate_prediction.tolist(),
-        "vehicle": vehicle_prediction.tolist()
+        "vehicle": vehicle_prediction.tolist(),
+        "license_plate": formatted_plate,
     }
+
     return jsonify(response)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True)
