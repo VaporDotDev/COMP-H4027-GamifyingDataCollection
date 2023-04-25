@@ -20,7 +20,7 @@ from flask import (
     redirect,
     request,
     jsonify,
-    send_file,
+    Response,
 )
 from google.oauth2 import id_token
 
@@ -144,21 +144,30 @@ def callback():
         return redirect("/")
 
 
-@app.route('/download')
+@app.route("/download")
 @login_is_required
 def download():
-    # Create a zip file of images
-    with zipfile.ZipFile('images.zip', 'w') as zip_file:
-        for filename in os.listdir('images'):
-            zip_file.write(os.path.join('images', filename))
-
-    # Send the zip file to the user
     try:
-        return send_file('images.zip', as_attachment=True)
+        # Create a zip file
+        with zipfile.ZipFile("images.zip", "w") as zip_file:
+            # Write each file in the images directory to the zip file
+            for filename in os.listdir("images"):
+                zip_file.write(os.path.join("images", filename))
+
+        with open(os.path.join("images.zip"), 'rb') as f:
+            data = f.readlines()
+
+        response = Response(data, headers={
+            'Content-Type': 'application/zip',
+            'Content-Disposition': 'attachment; filename=%s;' % "images.zip"
+        })
+
     finally:
-        # Make sure the file is closed and then delete it
-        if os.path.exists('images.zip'):
-            os.remove('images.zip')
+        # Delete the zip file
+        if os.path.exists("images.zip"):
+            os.remove("images.zip")
+
+    return response
 
 
 @app.route("/predict", methods=["POST", "GET"])
