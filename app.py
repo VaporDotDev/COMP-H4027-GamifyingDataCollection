@@ -11,7 +11,6 @@ import google
 import numpy as np
 import requests
 import tensorflow as tf
-from dotenv import load_dotenv
 from flask import (
     Flask,
     render_template,
@@ -25,23 +24,14 @@ from flask import (
 from google.oauth2 import id_token
 
 from classes.Gamification import p_year, p_registration
-from classes.User import User, db
-from google_auth import get_flow
-
-load_dotenv(".env")
-DB_USER = os.getenv("DB_USER")
-DB_PASS = os.getenv("DB_PASS")
-DB_HOST = os.getenv("DB_HOST")
-DB_PORT = os.getenv("DB_PORT")
-DB_NAME = os.getenv("DB_NAME")
+from classes.User import User
+from functions.database import init_app
+from functions.google_auth import get_flow
 
 app = Flask(__name__)
 app.secret_key = json.load(open("client_secret.json", "r"))["web"]["client_secret"]
 
-app.config[
-    "SQLALCHEMY_DATABASE_URI"
-] = f"mariadb+mariadbconnector://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-db.init_app(app)
+init_app(app)
 
 flow, GOOGLE_CLIENT_ID = get_flow()
 
