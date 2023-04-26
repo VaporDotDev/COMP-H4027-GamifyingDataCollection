@@ -170,7 +170,7 @@ def predict():
     image = request.files["image"].read()
 
     filename = str(uuid.uuid4()) + ".jpg"
-    image, image_copy = preprocess_image(image, filename)
+    image, image_copy = preprocess_image(image, filename, google_id=session["google_id"])
 
     # Make a prediction with the model
     vehicle_prediction = vehicle_model.predict(image[np.newaxis, ...])

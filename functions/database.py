@@ -16,3 +16,7 @@ def init_app(app):
         "SQLALCHEMY_DATABASE_URI"
     ] = f"mariadb+mariadbconnector://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
     db.init_app(app)
+
+    # Create all tables
+    with app.app_context():
+        db.create_all()
