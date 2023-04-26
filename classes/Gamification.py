@@ -6,7 +6,13 @@ from classes.User import User
 def p_year(license_plate, user_id):
     # Take the first three characters of the license plate
     plate_year = int(license_plate[:2])
-    plate_half = int(license_plate[2])
+
+    # Try to get the plate_half
+    try:
+        plate_half = int(license_plate[2])
+    # If the plate does not have a half, set it to 0
+    except ValueError:
+        plate_half = 0
 
     # If plate half is 1, set it to 0
     if plate_half == 1:
@@ -52,8 +58,8 @@ def p_year(license_plate, user_id):
 
 
 def p_registration(license_plate, user_id):
-    # Take everything from the 7th character to the end of the license plate
-    plate_registration = int(license_plate[6:])
+    # Take everything from the final dash to the end of the license plate
+    plate_registration = int(license_plate[license_plate.rfind("-") + 1:])
 
     # If the registration is less than 10
     if plate_registration < 10:

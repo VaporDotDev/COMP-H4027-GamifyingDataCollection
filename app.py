@@ -27,16 +27,19 @@ from classes.Gamification import p_year, p_registration
 from classes.User import User
 from functions.database import init_app
 from functions.google_auth import get_flow
+from functions.parse_license_plate import plate_correction
+
+cwd = os.getcwd()
 
 app = Flask(__name__)
-app.secret_key = json.load(open("client_secret.json", "r"))["web"]["client_secret"]
+app.secret_key = json.load(open(os.path.join(cwd, "client_secret.json"), "r"))["web"]["client_secret"]
 
 init_app(app)
 
 flow, GOOGLE_CLIENT_ID = get_flow()
 
-plate_model = tf.keras.models.load_model("models/plate.h5")
-vehicle_model = tf.keras.models.load_model("models/vehicle.h5")
+plate_model = tf.keras.models.load_model(os.path.join(cwd, "models/plate.h5"))
+vehicle_model = tf.keras.models.load_model(os.path.join(cwd, "models/vehicle.h5"))
 
 
 def login_is_required(f):
@@ -141,10 +144,10 @@ def download():
         # Create a zip file
         with zipfile.ZipFile("images.zip", "w") as zip_file:
             # Write each file in the images directory to the zip file
-            for filename in os.listdir("images"):
+            for filename in os.listdir(os.path.join(cwd, "images")):
                 zip_file.write(os.path.join("images", filename))
 
-        with open(os.path.join("images.zip"), 'rb') as f:
+        with open(os.path.join(cwd, "images.zip"), 'rb') as f:
             data = f.readlines()
 
         response = Response(data, headers={
@@ -154,7 +157,7 @@ def download():
 
     finally:
         # Delete the zip file
-        if os.path.exists("images.zip"):
+        if os.path.exists(os.path.join(cwd, "images.zip")):
             os.remove("images.zip")
 
     return response
@@ -179,7 +182,7 @@ def predict():
 
     # Save the image to disk with random filename
     filename = str(uuid.uuid4()) + ".jpg"
-    cv2.imwrite(os.path.join("images", filename), image)
+    cv2.imwrite(os.path.join(cwd, "images", filename), image)
 
     # Resize the image to (224, 224)
     image = cv2.resize(image, (224, 224))
@@ -249,144 +252,11 @@ def predict():
     reader = easyocr.Reader(["en"])
     result = reader.readtext(plate, detail=0)
 
-    most_rep = ''
-
-    if len(result) > 0:
-        for res in result:
-            digit_count = sum(c.isdigit() for c in res)
-            if digit_count > sum(c.isdigit() for c in most_rep):
-                most_rep = res
-
-    result = most_rep
-    result = result.replace("-", " ")
-    # Verify if the first three characters are digits
-    if result[:3].isdigit():
-        pass
-    else:
-        # Find which character is not a digit
-        for i, char in enumerate(result[:3]):
-            if not char.isdigit():
-                # If the character is a 'i' or 'I' replace it with a '1'
-                if char == "i" or char == "I":
-                    result = result[:i] + "1" + result[i + 1:]
-                # If the character is a 'o' or 'O' replace it with a '0'
-                elif char == "o" or char == "O":
-                    result = result[:i] + "0" + result[i + 1:]
-                # If the character is a 's' or 'S' replace it with a '5'
-                elif char == "s" or char == "S":
-                    result = result[:i] + "5" + result[i + 1:]
-                # If the character is a 'z' or 'Z' replace it with a '7'
-                elif char == "z" or char == "Z":
-                    result = result[:i] + "7" + result[i + 1:]
-                # If the character is a 'q' or 'Q' replace it with a '9'
-                elif char == "q" or char == "Q":
-                    result = result[:i] + "9" + result[i + 1:]
-                # If the character is a 'b' or 'B' replace it with a '8'
-                elif char == "b" or char == "B":
-                    result = result[:i] + "8" + result[i + 1:]
-                # If the character is a 'g' or 'G' replace it with a '6'
-                elif char == "g" or char == "G":
-                    result = result[:i] + "6" + result[i + 1:]
-                # If the character is a 't' or 'T' replace it with a '7'
-                elif char == "t" or char == "T":
-                    result = result[:i] + "7" + result[i + 1:]
-                # If the character is a 'l' or 'L' replace it with a '1'
-                elif char == "l" or char == "L":
-                    result = result[:i] + "1" + result[i + 1:]
-                # If the character is a 'e' or 'E' replace it with a '3'
-                elif char == "e" or char == "E":
-                    result = result[:i] + "3" + result[i + 1:]
-                # If the character is a 'j' or 'J' replace it with a '1'
-                elif char == "j" or char == "J":
-                    result = result[:i] + "1" + result[i + 1:]
-                # If the character is a 'p' or 'P' replace it with a '9'
-                elif char == "p" or char == "P":
-                    result = result[:i] + "9" + result[i + 1:]
-    # Verify if the 5th and 6th characters are alpha or an alpha and a space
-    if (result[4:6].isalpha()) or (result[4:6].isalpha() and result[5] == " "):
-        pass
-    else:
-        # Find which character is not a character
-        for i, char in enumerate(result[4:6]):
-            # If the digit is a '0' replace it with a 'D'
-            if char == "0":
-                result = result[:i + 4] + "D" + result[i + 5:]
-            # If the digit is a '1' replace it with a 'I'
-            elif char == "1":
-                result = result[:i + 4] + "I" + result[i + 5:]
-            # If the digit is a '2' replace it with a 'Z'
-            elif char == "2":
-                result = result[:i + 4] + "Z" + result[i + 5:]
-            # If the digit is a '3' replace it with a 'E'
-            elif char == "3":
-                result = result[:i + 4] + "E" + result[i + 5:]
-            # If the digit is a '4' replace it with a 'A'
-            elif char == "4":
-                result = result[:i + 4] + "A" + result[i + 5:]
-            # If the digit is a '5' replace it with a 'S'
-            elif char == "5":
-                result = result[:i + 4] + "S" + result[i + 5:]
-            # If the digit is a '6' replace it with a 'G'
-            elif char == "6":
-                result = result[:i + 4] + "G" + result[i + 5:]
-            # If the digit is a '7' replace it with a 'T'
-            elif char == "7":
-                result = result[:i + 4] + "T" + result[i + 5:]
-            # If the digit is a '8' replace it with a 'B'
-            elif char == "8":
-                result = result[:i + 4] + "B" + result[i + 5:]
-            # If the digit is a '9' replace it with a 'P'
-            elif char == "9":
-                result = result[:i + 4] + "P" + result[i + 5:]
-    # Verify if the resultt of the characters are digits
-    if result[6:].isdigit():
-        pass
-    else:
-        # Find which character is not a digit
-        for i, char in enumerate(result[:3]):
-            if not char.isdigit():
-                # If the character is a 'i' or 'I' replace it with a '1'
-                if char == "i" or char == "I":
-                    result = result[:i] + "1" + result[i + 1:]
-                # If the character is a 'o' or 'O' replace it with a '0'
-                elif char == "o" or char == "O":
-                    result = result[:i] + "0" + result[i + 1:]
-                # If the character is a 's' or 'S' replace it with a '5'
-                elif char == "s" or char == "S":
-                    result = result[:i] + "5" + result[i + 1:]
-                # If the character is a 'z' or 'Z' replace it with a '2'
-                elif char == "z" or char == "Z":
-                    result = result[:i] + "2" + result[i + 1:]
-                # If the character is a 'q' or 'Q' replace it with a '9'
-                elif char == "q" or char == "Q":
-                    result = result[:i] + "9" + result[i + 1:]
-                # If the character is a 'b' or 'B' replace it with a '8'
-                elif char == "b" or char == "B":
-                    result = result[:i] + "8" + result[i + 1:]
-                # If the character is a 'g' or 'G' replace it with a '6'
-                elif char == "g" or char == "G":
-                    result = result[:i] + "6" + result[i + 1:]
-                # If the character is a 't' or 'T' replace it with a '7'
-                elif char == "t" or char == "T":
-                    result = result[:i] + "7" + result[i + 1:]
-                # If the character is a 'l' or 'L' replace it with a '1'
-                elif char == "l" or char == "L":
-                    result = result[:i] + "1" + result[i + 1:]
-                # If the character is a 'e' or 'E' replace it with a '3'
-                elif char == "e" or char == "E":
-                    result = result[:i] + "3" + result[i + 1:]
-                # If the character is a 'j' or 'J' replace it with a '1'
-                elif char == "j" or char == "J":
-                    result = result[:i] + "1" + result[i + 1:]
-                # If the character is a 'p' or 'P' replace it with a '9'
-                elif char == "p" or char == "P":
-                    result = result[:i] + "9" + result[i + 1:]
-    formatted_plate = "{}-{}-{}".format(result[:3], result[4:5], result[6:])
-    formatted_plate = formatted_plate.replace(" ", "")
-    formatted_plate = formatted_plate.upper()
+    formatted_plate = plate_correction(result)
+    print(formatted_plate)
 
     # Create a CSV file with image name and prediction
-    with open("images/data.csv", "a") as f:
+    with open(os.path.join(cwd, "images/data.csv"), "a") as f:
         # Write the values to the CSV file
         f.write(
             f"image_{filename}.tiff,{xmin_plate},{ymin_plate},{xmax_plate},{ymax_plate},{formatted_plate},Plate\n",
@@ -402,8 +272,10 @@ def predict():
     }
     # Get the users google id
     google_id = session["google_id"]
-    p_year(formatted_plate, google_id)
-    p_registration(formatted_plate, google_id)
+    # If formatted_plate is not "INVALID PLATE"
+    if formatted_plate != "INVALID PLATE":
+        p_year(formatted_plate, google_id)
+        p_registration(formatted_plate, google_id)
 
     return jsonify(response)
 
