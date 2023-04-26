@@ -5,7 +5,6 @@ import zipfile
 from functools import wraps
 
 import cachecontrol as cachecontrol
-import cv2
 import easyocr
 import google
 import numpy as np
@@ -25,6 +24,7 @@ from google.oauth2 import id_token
 
 from classes.Gamification import p_year, p_registration
 from classes.User import User
+from functions.data_manager import preprocess_image, save_to_csv
 from functions.database import init_app
 from functions.google_auth import get_flow
 from functions.parse_license_plate import plate_correction
@@ -169,30 +169,8 @@ def predict():
     # Get the image from the request
     image = request.files["image"].read()
 
-    # Convert the image to a numpy array
-    image = np.frombuffer(image, np.uint8)
-
-    # Create a copy of the image
-    image_copy = image.copy()
-
-    # Decode the image using the TIFF flag
-    image = cv2.imdecode(
-        image, cv2.IMREAD_UNCHANGED | cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH
-    )
-
-    # Save the image to disk with random filename
     filename = str(uuid.uuid4()) + ".jpg"
-    cv2.imwrite(os.path.join(cwd, "images", filename), image)
-
-    # Resize the image to (224, 224)
-    image = cv2.resize(image, (224, 224))
-
-    # Normalize the image
-    image = image / 255.0
-
-    # Remove the alpha channel if the image has it
-    if image.shape[-1] == 4:
-        image = image[..., :3]
+    image, image_copy = preprocess_image(image, filename)
 
     # Make a prediction with the model
     vehicle_prediction = vehicle_model.predict(image[np.newaxis, ...])
@@ -224,12 +202,6 @@ def predict():
         int(xmax_plate),
         int(ymax_plate),
     )
-
-    image_copy = np.frombuffer(image_copy, np.uint8)
-    image_copy = cv2.imdecode(
-        image_copy, cv2.IMREAD_UNCHANGED | cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH
-    )
-    image_copy = cv2.cvtColor(image_copy, cv2.COLOR_BGR2GRAY)
     # Get the coordinates of the plate
     xmin_roi, ymin_roi, xmax_roi, ymax_roi = plate_prediction[0]
     # Scale the coordinates according to the image size
@@ -253,17 +225,10 @@ def predict():
     result = reader.readtext(plate, detail=0)
 
     formatted_plate = plate_correction(result)
-    print(formatted_plate)
 
-    # Create a CSV file with image name and prediction
-    with open(os.path.join(cwd, "images/data.csv"), "a") as f:
-        # Write the values to the CSV file
-        f.write(
-            f"image_{filename}.tiff,{xmin_plate},{ymin_plate},{xmax_plate},{ymax_plate},{formatted_plate},Plate\n",
-        )
-        f.write(
-            f"image_{filename}.tiff,{xmin_vehicle},{ymin_vehicle},{xmax_vehicle},{ymax_vehicle},{formatted_plate},Vehicle\n"
-        )
+    # Save predictions to CSV file
+    save_to_csv(filename, xmin_plate, ymin_plate, xmax_plate, ymax_plate, formatted_plate, "Plate")
+    save_to_csv(filename, xmin_vehicle, ymin_vehicle, xmax_vehicle, ymax_vehicle, formatted_plate, "Vehicle")
 
     response = {
         "plate": plate_prediction.tolist(),

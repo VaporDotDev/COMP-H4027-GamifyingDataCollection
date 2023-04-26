@@ -3,7 +3,6 @@ import re
 
 def plate_correction(plate):
     most_rep = ''
-    print(plate)
 
     # If there is more than one plate
     if len(plate) > 0:
@@ -24,7 +23,6 @@ def plate_correction(plate):
     # Store all characters from the second space to the end
     registration = result[result.rfind(" ") + 1:]
 
-    print(year, county, registration)
 
     # If the year is a digit
     if year.isdigit():
