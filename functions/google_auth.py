@@ -8,13 +8,13 @@ from google_auth_oauthlib.flow import Flow
 def get_flow():
     os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
-    cwd = os.getcwd()
+    cwd = os.path.dirname(os.path.abspath(__file__))
 
     GOOGLE_CLIENT_ID = \
-        json.load(open(os.path.join(cwd, "client_secret.json"), "r"))["web"][
+        json.load(open(os.path.join(cwd, "../client_secret.json"), "r"))["web"][
             "client_id"]
     client_secrets_file = os.path.join(pathlib.Path(__file__).parent,
-                                       os.path.join(cwd, "client_secret.json"))
+                                       os.path.join(cwd, "../client_secret.json"))
 
     flow = Flow.from_client_secrets_file(
         client_secrets_file=client_secrets_file,

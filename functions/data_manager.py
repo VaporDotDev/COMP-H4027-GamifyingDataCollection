@@ -6,7 +6,7 @@ import numpy as np
 
 from classes.Image import Image
 
-cwd = os.getcwd()
+cwd = os.path.dirname(os.path.abspath(__file__))
 
 
 def preprocess_image(image, filename, google_id):

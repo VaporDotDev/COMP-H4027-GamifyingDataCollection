@@ -29,7 +29,7 @@ from functions.database import init_app
 from functions.google_auth import get_flow
 from functions.parse_license_plate import plate_correction
 
-cwd = os.getcwd()
+cwd = os.path.dirname(os.path.abspath(__file__))
 
 app = Flask(__name__)
 app.secret_key = json.load(open(os.path.join(cwd, "client_secret.json"), "r"))["web"]["client_secret"]

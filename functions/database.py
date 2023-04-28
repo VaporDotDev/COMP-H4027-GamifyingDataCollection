@@ -1,7 +1,12 @@
 import os
 
+# Load the .env file
+from dotenv import load_dotenv
 from flask_sqlalchemy import SQLAlchemy
 
+cwd = os.path.dirname(os.path.abspath(__file__))
+
+load_dotenv(os.path.join(cwd, "../.env"))
 DB_USER = os.getenv("DB_USER")
 DB_PASS = os.getenv("DB_PASS")
 DB_HOST = os.getenv("DB_HOST")
