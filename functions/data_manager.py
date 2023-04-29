@@ -45,7 +45,7 @@ def preprocess_image(image, filename, google_id):
 
 
 def save_to_csv(filename, xmin, ymin, xmax, ymax, formatted_plate, object_type):
-    with open(os.path.join(cwd, "images/data.csv"), "a") as f:
+    with open(os.path.join(cwd, "../images/data.csv"), "a") as f:
         # Write the values to the CSV file
         f.write(
             f"{filename},{xmin},{ymin},{xmax},{ymax},{formatted_plate},{object_type}\n",

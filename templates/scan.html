@@ -35,9 +35,13 @@
                 xhr.open('POST', '/predict', true);
                 xhr.onload = function () {
                     var response = JSON.parse(xhr.responseText);
-                    console.log(response);
+                    console.log(response)
+                    var formatted_plate = response.license_plate;
                     var preds_plate = response.plate;
                     var preds_vehicle = response.vehicle;
+                    alert("Predicted plate: " + formatted_plate + "\n" +
+                        "Plate coordinates: " + preds_plate + "\n" +
+                        "Vehicle coordinates: " + preds_vehicle);
                     var xmin_plate = Math.round(preds_plate[0][0] * canvas.width);
                     var ymin_plate = Math.round(preds_plate[0][1] * canvas.height);
                     var xmax_plate = Math.round(preds_plate[0][2] * canvas.width);
