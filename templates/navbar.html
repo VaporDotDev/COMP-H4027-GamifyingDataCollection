@@ -1,7 +1,144 @@
-<ul>
-    <li><a href="/">Home</a></li>
-    <li><a href="/guide">Guide</a></li>
-    <li><a href="/scan">Scan</a></li>
-    <li><a href="/profile">Profile</a></li>
-    <li><a href="/download">Download</a></li>
-</ul>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Navbar with Material Icons</title>
+    <link rel="stylesheet" href="../static/style.css">
+    <link href="https://fonts.googleapis.com/css?family=Montserrat&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <style>
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #333;
+            height: 50px;
+            border-radius: 30px;
+            overflow: hidden;
+            font-family: 'Montserrat', sans-serif;
+            text-transform: uppercase;
+            box-shadow: 0 5px 5px rgba(0, 0, 0, 0.3);
+            box-sizing: border-box;
+        }
+
+        nav ul {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        nav li {
+            display: inline-block;
+            margin-right: 20px;
+        }
+
+        nav li:last-child {
+            margin-right: 0;
+        }
+
+        nav li a {
+            display: flex;
+            align-items: center;
+            color: white;
+            text-align: center;
+            padding: 14px 16px;
+            text-decoration: none;
+            font-weight: 600;
+            letter-spacing: 1px;
+            border: 2px solid transparent;
+            box-sizing: border-box;
+        }
+
+        nav li a:hover {
+            background-color: #ddd;
+            color: black;
+            border-radius: 30px;
+            padding: 8px 10px;
+            border-color: transparent;
+        }
+
+        nav li a .link-text {
+            margin-left: 5px;
+        }
+
+        .center-nav {
+            width: 400px;
+            text-align: center;
+        }
+
+        @media screen and (max-width: 720px) {
+            nav li a .link-text {
+                display: none;
+            }
+
+            nav li a i {
+                display: inline-block;
+            }
+
+            .center-nav {
+                width: 100%;
+            }
+        }
+
+        @media screen and (min-width: 721px) {
+            nav li a .link-text {
+                display: inline-block;
+            }
+
+            nav li a i {
+                display: none;
+            }
+        }
+
+        .left-side-nav {
+            margin-left: 20px;
+        }
+
+        .right-side-nav {
+            margin-right: 20px;
+        }
+
+        .center-nav {
+            width: 50%;
+            max-width: 400px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 0 auto;
+        }
+
+        @media screen and (min-width: 720px) {
+            nav li a .material-icons {
+                display: none;
+            }
+        }
+
+        .material-icons {
+            font-size: 20px;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+<nav id="main-nav">
+    <ul class="left-side-nav">
+        <li><a href="/"><i class="material-icons">home</i><span class="link-text">Home</span></a></li>
+    </ul>
+    <ul class="center-nav">
+        <li><a href="/guide"><i class="material-icons">info</i><span class="link-text">Guide</span></a></li>
+        <li><a href="/scan"><i class="material-icons">camera_alt</i><span class="link-text">Scan</span></a></li>
+        <li><a href="/download"><i class="material-icons">cloud_download</i><span class="link-text">Download</span></a>
+        </li>
+    </ul>
+    <ul class="right-side-nav">
+        {% if is_user_logged_in %}
+            <li><a href="/profile"><i class="material-icons">person</i><span class="link-text">Profile</span></a></li>
+        {% else %}
+            <li><a href="/login"><i class="material-icons">login</i><span
+                    class="link-text">Login</span></a></li>
+        {% endif %}
+    </ul>
+</nav>
+</body>
+

@@ -23,6 +23,8 @@ from flask import (
 from google.oauth2 import id_token
 
 from classes.Gamification import p_year, p_registration
+from classes.Image import Image
+from classes.Level import level_structure
 from classes.User import User
 from functions.data_manager import preprocess_image, save_to_csv
 from functions.database import init_app
@@ -53,20 +55,27 @@ def login_is_required(f):
     return wrapper
 
 
+def is_user_logged_in():
+    if "google_id" not in session:
+        return False
+    else:
+        return True
+
+
 @app.route("/")
 def home():  # put application's code here
-    return render_template("index.html")
+    return render_template("index.html", is_user_logged_in=is_user_logged_in())
 
 
 @app.route("/scan")
 @login_is_required
 def scan():
-    return render_template("scan.html")
+    return render_template("scan.html", is_user_logged_in=is_user_logged_in())
 
 
 @app.route("/guide")
 def guide():
-    return render_template("guide.html")
+    return render_template("guide.html", is_user_logged_in=is_user_logged_in())
 
 
 @app.route("/login")
@@ -249,7 +258,12 @@ def predict():
 @login_is_required
 def profile():
     user = User.query.filter_by(google_id=session["google_id"]).first()
-    return render_template("profile.html", user=user)
+    # Get the total amount of images in the database
+    total_images = Image.query.count()
+    # Get the total amount of images uploaded by the user
+    user_images = Image.query.filter_by(captured_by=user.google_id).count()
+    return render_template("profile.html", user=user, is_user_logged_in=is_user_logged_in(),
+                           level_structure=level_structure, total_images=total_images, user_images=user_images)
 
 
 if __name__ == "__main__":

@@ -10,6 +10,10 @@
         }
 
         function submitForm() {
+            var spinner = document.getElementById('spinner-container');
+            spinner.style.display = 'flex'; // show the spinner
+            document.body.classList.add('spinner-active'); // blur the page
+
             var canvas = document.querySelector('canvas');
             var fileInput = document.querySelector('input[type="file"]');
             var image = new Image();
@@ -33,7 +37,11 @@
 
                 var xhr = new XMLHttpRequest();
                 xhr.open('POST', '/predict', true);
+
                 xhr.onload = function () {
+                    spinner.style.display = 'none'; // hide the spinner
+                    document.body.classList.remove('spinner-active'); // remove the blur
+
                     var response = JSON.parse(xhr.responseText);
                     console.log(response)
                     var formatted_plate = response.license_plate;
@@ -71,19 +79,94 @@
             if (!isMobile()) {
                 document.querySelector('button[onclick="submitForm()"]').style.display = 'inline-block';
                 document.querySelector('button label[for="Scan"]').parentNode.style.display = 'inline-block';
+                document.querySelector('div[id="button-container"]').style.display = 'flex';
             } else {
-                var message = document.createElement('p');
-                message.innerText = 'Please visit this page on a mobile device.';
-                document.body.appendChild(message);
+                alert('This demo is not available on mobile devices. Please use a desktop browser.');
             }
         };
     </script>
+    <style>
+        #button-container {
+            position: fixed;
+            z-index: 999;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            padding: 10px;
+            border-radius: 30px;
+            background-color: #333;
+            margin-bottom: 10px;
+            box-shadow: 0 -1px 10px rgba(0, 0, 0, 0.3);
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 200px;
+        }
+
+        button {
+            padding: 10px;
+            font-size: 18px;
+            background-color: #6969ee;
+            color: white;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+
+        #spinner-container {
+            position: fixed;
+            z-index: 9999;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+
+        }
+
+        .spinner {
+            border: 16px solid #f3f3f3;
+            border-top: 16px solid #6969ee;
+            border-radius: 50%;
+            width: 80px;
+            height: 80px;
+            animation: spin 2s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        #spinner-container {
+            display: none;
+        }
+
+        body.spinner-active {
+            filter: blur(5px);
+        }
+
+    </style>
 </head>
 <body>
-<button onclick="submitForm()" style="display: none">Predict</button>
-<button style="display: none"><label for="Scan">Scan</label></button>
+{% include 'navbar.html' %}
+<div id="spinner-container">
+    <div class="spinner"></div>
+</div>
+<div id="button-container" style="display: none">
+    <button><label for="Scan">Scan</label></button>
+    <button onclick="submitForm()">Send</button>
+</div>
 <input id="Scan" type="file" accept="image/*" capture="environment" style="visibility: hidden">
 <canvas></canvas>
-{% include 'navbar.html' %}
 </body>
 </html>
