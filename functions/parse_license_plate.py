@@ -23,7 +23,6 @@ def plate_correction(plate):
     # Store all characters from the second space to the end
     registration = result[result.rfind(" ") + 1:]
 
-
     # If the year is a digit
     if year.isdigit():
         pass

@@ -29,7 +29,7 @@ def preprocess_image(image, filename, google_id):
 
     # Save the image to disk if unique
     if is_image_unique(image_copy, filename, google_id):
-        cv2.imwrite(os.path.join(cwd, "images", filename), image)
+        cv2.imwrite(os.path.join(cwd, "../images", filename), image)
 
     # Resize the image to (224, 224)
     image = cv2.resize(image, (224, 224))
